@@ -6,8 +6,9 @@ import { studentsApi, CreateStudentInput, UpdateStudentInput } from '@/lib/api/s
 import { Student } from '@/types';
 import { useAuth } from '@/lib/auth';
 import StudentFormModal from '@/components/students/StudentFormModal';
-import { Plus, Pencil, Trash2, Mail, Phone } from 'lucide-react';
+import { Plus, Pencil, Trash2, Mail, Phone,Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/dist/client/components/navigation';
 
 export default function StudentsPage() {
   const { user } = useAuth();
@@ -22,7 +23,7 @@ export default function StudentsPage() {
     queryKey: ['students'],
     queryFn: studentsApi.getAll,
   });
-
+  const router = useRouter();
   // Create mutation
   const createMutation = useMutation({
     mutationFn: studentsApi.create,
@@ -53,7 +54,7 @@ export default function StudentsPage() {
     mutationFn: studentsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
-        toast.success('Student deleted');
+      toast.success('Student deleted');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to delete student');
@@ -200,6 +201,13 @@ export default function StudentsPage() {
                   {/* Actions */}
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => router.push(`/students/${student.id}`)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View Profile"
+                      >
+                        <Eye size={15} />
+                      </button>
                       <button
                         onClick={() => handleEdit(student)}
                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

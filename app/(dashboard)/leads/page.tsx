@@ -3,69 +3,114 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { leadsApi, CreateLeadInput, UpdateLeadInput } from '@/lib/api/leads';
+import { studentsApi } from '@/lib/api/students';
+import { coursesApi } from '@/lib/api/courses';
 import { Lead } from '@/types';
 import { useAuth } from '@/lib/auth';
 import StatusBadge from '@/components/ui/StatusBadge';
 import LeadFormModal from '@/components/leads/LeadFormModal';
-import { Plus, Pencil, Trash2, Phone, Mail } from 'lucide-react';
+import ApplicationFormModal from '@/components/applications/ApplicationFormModal';
+import { Plus, Pencil, Trash2, Phone, Mail, UserCheck, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
+
 const statusOptions = ['ALL', 'NEW', 'CONTACTED', 'QUALIFIED', 'ENROLLED', 'LOST'];
 
 export default function LeadsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const [showModal, setShowModal] = useState(false);
+  const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [convertedStudentId, setConvertedStudentId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
 
-  // Fetch leads
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ['leads'],
     queryFn: leadsApi.getAll,
   });
 
-  // Create mutation
+  const { data: students = [] } = useQuery({
+    queryKey: ['students'],
+    queryFn: studentsApi.getAll,
+  });
+
+  const { data: courses = [] } = useQuery({
+    queryKey: ['courses'],
+    queryFn: coursesApi.getAll,
+  });
+
   const createMutation = useMutation({
     mutationFn: leadsApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       setShowModal(false);
-    toast.success('Lead added successfully');
-  },
-  onError: (error: any) => {
-    toast.error(error.response?.data?.message || 'Failed to add lead');
-  },
+      toast.success('Lead added successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to add lead');
+    },
   });
 
-  // Update mutation
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateLeadInput }) =>
       leadsApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       setShowModal(false);
-       toast.success('Lead updated successfully');
-  },
-  onError: (error: any) => {
-    toast.error(error.response?.data?.message || 'Failed to update lead');
-  },
+      setEditingLead(null);
+      toast.success('Lead updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update lead');
+    },
   });
 
-  // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: leadsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
-       toast.success('Lead deleted');
-  },
-  onError: (error: any) => {
-    toast.error(error.response?.data?.message || 'Failed to delete lead');
-  },
+      toast.success('Lead deleted');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete lead');
+    },
   });
 
-  // Filter leads
+  const convertMutation = useMutation({
+    mutationFn: leadsApi.convert,
+    onSuccess: (student) => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      toast.success('Lead converted to student successfully');
+      // Store converted student id and open application modal
+      setConvertedStudentId(student.id);
+      setShowApplicationModal(true);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to convert lead');
+    },
+  });
+
+  const createApplicationMutation = useMutation({
+    mutationFn: (data: any) =>
+      import('@/lib/api/applications').then(({ applicationsApi }) =>
+        applicationsApi.create(data)
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+      setShowApplicationModal(false);
+      setConvertedStudentId(null);
+      toast.success('Application created successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to create application');
+    },
+  });
+
   const filteredLeads = leads.filter((lead) => {
     const matchesStatus = statusFilter === 'ALL' || lead.status === statusFilter;
     const matchesSearch =
@@ -94,10 +139,26 @@ export default function LeadsPage() {
     }
   };
 
+  const handleConvert = async (lead: Lead) => {
+    if (confirm(`Convert ${lead.firstName} ${lead.lastName} to a student?`)) {
+      await convertMutation.mutateAsync(lead.id);
+    }
+  };
+
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingLead(null);
   };
+
+  const handleApplicationSubmit = async (data: any) => {
+    await createApplicationMutation.mutateAsync(data);
+  };
+
+  // Filter students for application modal
+  // Only show the newly converted student
+  const convertedStudent = students.filter(s =>
+    s.id === convertedStudentId
+  );
 
   return (
     <div>
@@ -122,8 +183,6 @@ export default function LeadsPage() {
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
         <div className="flex flex-col sm:flex-row gap-3">
-
-          {/* Search */}
           <input
             type="text"
             placeholder="Search by name or email..."
@@ -131,23 +190,21 @@ export default function LeadsPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-
-          {/* Status filter */}
           <div className="flex gap-2 flex-wrap">
             {statusOptions.map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === status
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  statusFilter === status
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+                }`}
               >
                 {status}
               </button>
             ))}
           </div>
-
         </div>
       </div>
 
@@ -218,27 +275,30 @@ export default function LeadsPage() {
                     </p>
                   </td>
 
-                  {/* Status - clickable dropdown */}
+                  {/* Status */}
                   <td className="px-6 py-4">
-                    <select
-                      value={lead.status}
-                      onChange={(e) => updateMutation.mutate({
-                        id: lead.id,
-                        data: { status: e.target.value as any }
-                      })}
-                      className={`text-xs px-2 py-1 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ${lead.status === 'NEW' ? 'bg-blue-100 text-blue-700' :
+                    {lead.status === 'ENROLLED' ? (
+                      <StatusBadge status={lead.status} />
+                    ) : (
+                      <select
+                        value={lead.status}
+                        onChange={(e) => updateMutation.mutate({
+                          id: lead.id,
+                          data: { status: e.target.value as any }
+                        })}
+                        className={`text-xs px-2 py-1 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          lead.status === 'NEW'       ? 'bg-blue-100 text-blue-700' :
                           lead.status === 'CONTACTED' ? 'bg-yellow-100 text-yellow-700' :
-                            lead.status === 'QUALIFIED' ? 'bg-purple-100 text-purple-700' :
-                              lead.status === 'ENROLLED' ? 'bg-green-100 text-green-700' :
-                                'bg-red-100 text-red-700'
+                          lead.status === 'QUALIFIED' ? 'bg-purple-100 text-purple-700' :
+                          'bg-red-100 text-red-700'
                         }`}
-                    >
-                      <option value="NEW">NEW</option>
-                      <option value="CONTACTED">CONTACTED</option>
-                      <option value="QUALIFIED">QUALIFIED</option>
-                      <option value="ENROLLED">ENROLLED</option>
-                      <option value="LOST">LOST</option>
-                    </select>
+                      >
+                        <option value="NEW">🔵 NEW</option>
+                        <option value="CONTACTED">🟡 CONTACTED</option>
+                        <option value="QUALIFIED">🟣 QUALIFIED</option>
+                        <option value="LOST">🔴 LOST</option>
+                      </select>
+                    )}
                   </td>
 
                   {/* Date */}
@@ -251,12 +311,42 @@ export default function LeadsPage() {
                   {/* Actions */}
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleEdit(lead)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <Pencil size={15} />
-                      </button>
+
+                      {/* Convert button - show for non-enrolled, non-lost leads */}
+                      {lead.status !== 'ENROLLED' && lead.status !== 'LOST' && (
+                        <button
+                          onClick={() => handleConvert(lead)}
+                          disabled={convertMutation.isPending}
+                          className="flex items-center gap-1 px-2 py-1.5 text-xs text-green-600 hover:bg-green-50 rounded-lg transition-colors font-medium"
+                          title="Convert to Student"
+                        >
+                          <UserCheck size={14} />
+                          Convert
+                        </button>
+                      )}
+
+                      {/* View Student button - show for enrolled leads */}
+                      {lead.status === 'ENROLLED' && lead.studentId && (
+                        <button
+                          onClick={() => router.push(`/students/${lead.studentId}`)}
+                          className="flex items-center gap-1 px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                        >
+                          <Eye size={14} />
+                          View Student
+                        </button>
+                      )}
+
+                      {/* Edit button - hide for enrolled */}
+                      {lead.status !== 'ENROLLED' && (
+                        <button
+                          onClick={() => handleEdit(lead)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                      )}
+
+                      {/* Delete button - admin only */}
                       {user?.role === 'ADMIN' && (
                         <button
                           onClick={() => handleDelete(lead.id)}
@@ -265,6 +355,7 @@ export default function LeadsPage() {
                           <Trash2 size={15} />
                         </button>
                       )}
+
                     </div>
                   </td>
 
@@ -275,13 +366,38 @@ export default function LeadsPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Lead Form Modal */}
       {showModal && (
         <LeadFormModal
           lead={editingLead}
           onSubmit={handleSubmit}
           onClose={handleCloseModal}
         />
+      )}
+
+      {/* Application Modal - opens after conversion */}
+      {showApplicationModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Create Application
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Student converted successfully. Select a course to apply for.
+              </p>
+            </div>
+            <ApplicationFormModal
+              students={convertedStudent.length > 0 ? convertedStudent : students}
+              courses={courses}
+              onSubmit={handleApplicationSubmit}
+              onClose={() => {
+                setShowApplicationModal(false);
+                setConvertedStudentId(null);
+              }}
+            />
+          </div>
+        </div>
       )}
 
     </div>

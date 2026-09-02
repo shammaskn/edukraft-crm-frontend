@@ -1,5 +1,5 @@
 import api from '@/lib/axios';
-import { Lead, ApiResponse } from '@/types';
+import { Lead, ApiResponse, Student } from '@/types';
 
 export const leadsApi = {
   getAll: async (): Promise<Lead[]> => {
@@ -24,6 +24,10 @@ export const leadsApi = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/leads/${id}`);
+  },
+   convert: async (id: string): Promise<Student> => {
+    const res = await api.post<ApiResponse<Student>>(`/leads/${id}/convert`);
+    return res.data.data;
   },
 };
 

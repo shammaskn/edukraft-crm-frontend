@@ -35,6 +35,7 @@ export interface Lead {
   source?: string;
   status: LeadStatus;
   notes?: string;
+  studentId?: string | null; 
   createdAt: string;
   updatedAt: string;
 }

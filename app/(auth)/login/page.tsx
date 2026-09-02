@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuth } from '@/lib/auth'; 
+import { useAuth } from '@/lib/auth';
 import { BookOpen, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -16,9 +15,7 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const router = useRouter();
   const { login } = useAuth();
-  const [error, setError] = useState('');
 
   const {
     register,
@@ -28,21 +25,19 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data: LoginForm) => { 
-  try {
-    setError('');
-    await login(data.email, data.password);
-    window.location.replace('/dashboard'); // ← replace not href
-  } catch (err: any) {
-    setError(err.response?.data?.message || 'Login failed');
-  }
-};
+  const onSubmit = async (data: LoginForm) => {
+    try {
+      await login(data.email, data.password);
+      window.location.replace('/dashboard');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Invalid email or password');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 w-full max-w-md">
 
-        {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
           <div className="bg-blue-600 p-2 rounded-lg">
             <BookOpen className="text-white" size={24} />
@@ -53,21 +48,10 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Title */}
         <h2 className="text-2xl font-semibold text-gray-900 mb-1">Welcome back</h2>
         <p className="text-gray-500 mb-6">Sign in to your account</p>
 
-        {/* Error message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-
-          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Email address
@@ -83,7 +67,6 @@ export default function LoginPage() {
             )}
           </div>
 
-          {/* Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Password
@@ -99,7 +82,6 @@ export default function LoginPage() {
             )}
           </div>
 
-          {/* Submit button */}
           <button
             type="submit"
             disabled={isSubmitting}
@@ -114,9 +96,7 @@ export default function LoginPage() {
               'Sign in'
             )}
           </button>
-
         </form>
-
       </div>
     </div>
   );
