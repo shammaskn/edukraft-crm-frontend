@@ -7,13 +7,14 @@ import { studentsApi } from '@/lib/api/students';
 import { coursesApi } from '@/lib/api/courses';
 import { Lead } from '@/types';
 import { useAuth } from '@/lib/auth';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import LeadFormModal from '@/components/leads/LeadFormModal';
 import ApplicationFormModal from '@/components/applications/ApplicationFormModal';
 import { Plus, Pencil, Trash2, Phone, Mail, UserCheck, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-
+import { universitiesApi } from '@/lib/api/universities';
 const statusOptions = ['ALL', 'NEW', 'CONTACTED', 'QUALIFIED', 'ENROLLED', 'LOST'];
 
 export default function LeadsPage() {
@@ -26,8 +27,9 @@ export default function LeadsPage() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [convertedStudentId, setConvertedStudentId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [confirmDelete, setConfirmDelete] = useState<Lead | null>(null);
   const [search, setSearch] = useState('');
-
+  const [confirmConvert, setConfirmConvert] = useState<Lead | null>(null);
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ['leads'],
     queryFn: leadsApi.getAll,
@@ -42,7 +44,10 @@ export default function LeadsPage() {
     queryKey: ['courses'],
     queryFn: coursesApi.getAll,
   });
-
+  const { data: universities = [] } = useQuery({
+    queryKey: ['universities'],
+    queryFn: universitiesApi.getAll,
+  });
   const createMutation = useMutation({
     mutationFn: leadsApi.create,
     onSuccess: () => {
@@ -82,11 +87,11 @@ export default function LeadsPage() {
 
   const convertMutation = useMutation({
     mutationFn: leadsApi.convert,
-    onSuccess: (student) => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
-      queryClient.invalidateQueries({ queryKey: ['students'] });
+    onSuccess: async (student) => {
+      await queryClient.invalidateQueries({ queryKey: ['leads'] });
+      await queryClient.invalidateQueries({ queryKey: ['students'] });
+      await queryClient.refetchQueries({ queryKey: ['students'] }); // ← force refetch
       toast.success('Lead converted to student successfully');
-      // Store converted student id and open application modal
       setConvertedStudentId(student.id);
       setShowApplicationModal(true);
     },
@@ -139,10 +144,10 @@ export default function LeadsPage() {
     }
   };
 
-  const handleConvert = async (lead: Lead) => {
-    if (confirm(`Convert ${lead.firstName} ${lead.lastName} to a student?`)) {
-      await convertMutation.mutateAsync(lead.id);
-    }
+  const handleConfirmConvert = async () => {
+    if (!confirmConvert) return;
+    await convertMutation.mutateAsync(confirmConvert.id);
+    setConfirmConvert(null);
   };
 
   const handleCloseModal = () => {
@@ -195,11 +200,10 @@ export default function LeadsPage() {
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  statusFilter === status
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === status
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
               >
                 {status}
               </button>
@@ -286,12 +290,11 @@ export default function LeadsPage() {
                           id: lead.id,
                           data: { status: e.target.value as any }
                         })}
-                        className={`text-xs px-2 py-1 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          lead.status === 'NEW'       ? 'bg-blue-100 text-blue-700' :
+                        className={`text-xs px-2 py-1 rounded-full font-medium border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ${lead.status === 'NEW' ? 'bg-blue-100 text-blue-700' :
                           lead.status === 'CONTACTED' ? 'bg-yellow-100 text-yellow-700' :
-                          lead.status === 'QUALIFIED' ? 'bg-purple-100 text-purple-700' :
-                          'bg-red-100 text-red-700'
-                        }`}
+                            lead.status === 'QUALIFIED' ? 'bg-purple-100 text-purple-700' :
+                              'bg-red-100 text-red-700'
+                          }`}
                       >
                         <option value="NEW">🔵 NEW</option>
                         <option value="CONTACTED">🟡 CONTACTED</option>
@@ -315,7 +318,7 @@ export default function LeadsPage() {
                       {/* Convert button - show for non-enrolled, non-lost leads */}
                       {lead.status !== 'ENROLLED' && lead.status !== 'LOST' && (
                         <button
-                          onClick={() => handleConvert(lead)}
+                          onClick={() => setConfirmConvert(lead)}
                           disabled={convertMutation.isPending}
                           className="flex items-center gap-1 px-2 py-1.5 text-xs text-green-600 hover:bg-green-50 rounded-lg transition-colors font-medium"
                           title="Convert to Student"
@@ -349,7 +352,7 @@ export default function LeadsPage() {
                       {/* Delete button - admin only */}
                       {user?.role === 'ADMIN' && (
                         <button
-                          onClick={() => handleDelete(lead.id)}
+                          onClick={() => setConfirmDelete(lead)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 size={15} />
@@ -395,11 +398,31 @@ export default function LeadsPage() {
                 setShowApplicationModal(false);
                 setConvertedStudentId(null);
               }}
+              preSelectedStudent={students.find(s => s.id === convertedStudentId) || undefined}
             />
           </div>
         </div>
       )}
-
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete X"
+          message={`Are you sure you want to delete ${confirmDelete.name}?`}
+          isLoading={deleteMutation.isPending}
+          onConfirm={() => deleteMutation.mutate(confirmDelete.id)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+      {confirmConvert && (
+        <ConfirmModal
+          title="Convert to Student"
+          message={`Convert ${confirmConvert.firstName} ${confirmConvert.lastName} to a student? This will create a student account and update lead status to ENROLLED.`}
+          confirmLabel="Convert"
+          isLoading={convertMutation.isPending}
+          onConfirm={handleConfirmConvert}
+          onCancel={() => setConfirmConvert(null)}
+          variant="primary"
+        />
+      )}
     </div>
   );
 }

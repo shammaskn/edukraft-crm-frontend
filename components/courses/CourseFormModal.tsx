@@ -3,39 +3,41 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Course } from '@/types';
+import { Course, University } from '@/types';
 import { X, Loader2 } from 'lucide-react';
 
 const courseSchema = z.object({
-  title:       z.string().min(3, 'Title must be at least 3 characters'),
+  title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional(),
-  duration:    z.coerce.number().min(1, 'Duration must be at least 1 week'),
-  fee:         z.coerce.number().min(0, 'Fee cannot be negative'),
+  duration: z.coerce.number().min(1, 'Duration must be at least 1 week'),
+  fee: z.coerce.number().min(0, 'Fee cannot be negative'),
+  universityId: z.string().optional(),
 });
 
-type CourseFormData = z.infer<typeof courseSchema>; 
+type CourseFormData = z.infer<typeof courseSchema>;
 
 interface Props {
   course?: Course | null;
+  universities: University[];
   onSubmit: (data: any) => Promise<void>;
   onClose: () => void;
 }
 
-export default function CourseFormModal({ course, onSubmit, onClose }: Props) {
+export default function CourseFormModal({ course, onSubmit, universities, onClose }: Props) {
   const {
-  register,
-  handleSubmit,
-  formState: { errors, isSubmitting },
-} = useForm<z.output<typeof courseSchema>>({
-  // @ts-ignore
-  resolver: zodResolver(courseSchema),
-  defaultValues: course ? {
-    title:       course.title,
-    description: course.description || '',
-    duration:    course.duration,
-    fee:         course.fee,
-  } : {},
-});
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<z.output<typeof courseSchema>>({
+    // @ts-ignore
+    resolver: zodResolver(courseSchema),
+    defaultValues: course ? {
+      title: course.title,
+      description: course.description || '',
+      duration: course.duration,
+      fee: course.fee,
+    } : {},
+  });
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -68,7 +70,24 @@ export default function CourseFormModal({ course, onSubmit, onClose }: Props) {
               <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>
             )}
           </div>
-
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              University <span className="text-gray-400">(optional)</span>
+            </label>
+            <select
+              {...register('universityId')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">No university</option>
+              {universities
+                .filter(u => u.isActive)
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} — {u.location}
+                  </option>
+                ))}
+            </select>
+          </div>
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

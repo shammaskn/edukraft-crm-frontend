@@ -10,14 +10,18 @@ import {
   TrendingUp,
   FileText,
   BookMarked,
+  GraduationCap,
+  UserCog,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/leads',     label: 'Leads',     icon: TrendingUp },
-  { href: '/students',  label: 'Students',  icon: Users },
-  { href: '/courses',   label: 'Courses',   icon: BookOpen },
+  { href: '/leads', label: 'Leads', icon: TrendingUp },
+  { href: '/students', label: 'Students', icon: Users },
+  { href: '/courses', label: 'Courses', icon: BookOpen },
+  { href: '/universities', label: 'Universities', icon: GraduationCap },
   { href: '/applications', label: 'Applications', icon: FileText },
+  { href: '/users', label: 'Users', icon: UserCog, adminOnly: true },
 ];
 
 export default function Sidebar() {
@@ -42,25 +46,27 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
+        {navItems
+          .filter(item => !item.adminOnly || user?.role === 'ADMIN')
+          .map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                isActive
-                  ? 'bg-blue-50 text-blue-600 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
-            >
-              <Icon size={18} />
-              {item.label}
-            </Link>
-          );
-        })}
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${isActive
+                    ? 'bg-blue-50 text-blue-600 font-medium'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+              >
+                <Icon size={18} />
+                {item.label}
+              </Link>
+            );
+          })}
+      
       </nav>
 
       {/* User info at bottom */}

@@ -11,6 +11,7 @@ export function middleware(request: NextRequest) {
     '/students',
     '/courses',
     '/applications',
+     '/users',
   ];
 
   const isProtectedRoute = protectedRoutes.some(route =>

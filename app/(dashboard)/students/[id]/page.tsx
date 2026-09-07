@@ -11,14 +11,14 @@ import ApplicationFormModal from '@/components/applications/ApplicationFormModal
 import { useState } from 'react';
 import { ArrowLeft, Mail, Phone, MapPin, Plus, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-
+import ConfirmModal from '@/components/ui/ConfirmModal';
 export default function StudentProfilePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showApplicationModal, setShowApplicationModal] = useState(false);
-
+  const [confirmDelete, setConfirmDelete] = useState<Student | null>(null);
   // Fetch student
   const { data: student, isLoading } = useQuery({
     queryKey: ['student', id],
@@ -69,6 +69,7 @@ export default function StudentProfilePage() {
     mutationFn: applicationsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applications'] });
+      setConfirmDelete(null);
       toast.success('Application deleted');
     },
   });
@@ -224,7 +225,7 @@ export default function StudentProfilePage() {
                   {/* Delete - admin only */}
                   {user?.role === 'ADMIN' && (
                     <button
-                      onClick={() => deleteApplicationMutation.mutate(app.id)}
+                    onClick={() => setConfirmDelete(app.id)}
                       className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
                     >
                       <Trash2 size={15} />
@@ -244,9 +245,18 @@ export default function StudentProfilePage() {
           courses={courses}
           onSubmit={(data) => createApplicationMutation.mutateAsync(data)}
           onClose={() => setShowApplicationModal(false)}
-          preSelectedStudent={student}  
+          preSelectedStudent={student}
         />
       )}
+      {confirmDelete && (
+  <ConfirmModal
+    title="Delete Application"
+    message="Are you sure you want to delete this application?"
+    isLoading={deleteApplicationMutation.isPending}
+    onConfirm={() => deleteApplicationMutation.mutate(confirmDelete)}
+    onCancel={() => setConfirmDelete(null)}
+  />
+)}
     </div>
   );
 }

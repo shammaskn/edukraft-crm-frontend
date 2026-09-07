@@ -15,6 +15,19 @@ export interface Student {
   createdAt: string;
   updatedAt: string;
 }
+export interface University {
+  id: string;
+  name: string;
+  location: string;
+  website?: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    courses: number;
+  };
+}
 export interface Course {
   id: string;
   title: string;
@@ -22,11 +35,19 @@ export interface Course {
   duration: number;
   fee: number;
   isActive: boolean;
+   universityId?: string | null;
+  university?: {
+    id: string;
+    name: string;
+    location: string;
+  } | null;
+  
   createdAt: string;
   updatedAt: string;
 }
 export type LeadStatus = 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'ENROLLED' | 'LOST';
 export interface Lead {
+  name: any;
   id: string;
   firstName: string;
   lastName: string;
@@ -53,10 +74,14 @@ export interface Application {
     lastName: string;
     email: string;
   };
-  course: {
+ course: {
     id: string;
     title: string;
     fee: number;
+    university?: {
+      id: string;
+      name: string;
+    } | null;
   };
   createdAt: string;
   updatedAt: string;

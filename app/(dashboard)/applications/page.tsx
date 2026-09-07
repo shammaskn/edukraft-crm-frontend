@@ -6,12 +6,13 @@ import { applicationsApi, CreateApplicationInput, UpdateApplicationInput } from 
 import { studentsApi } from '@/lib/api/students';
 import { coursesApi } from '@/lib/api/courses';
 import { Application } from '@/types';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { useAuth } from '@/lib/auth';
 import ApplicationFormModal from '@/components/applications/ApplicationFormModal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Plus, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-
+import { universitiesApi } from '@/lib/api/universities';
 const statusFilters = ['ALL', 'PENDING', 'APPROVED', 'REJECTED'];
 
 export default function ApplicationsPage() {
@@ -21,13 +22,16 @@ export default function ApplicationsPage() {
   const [showModal, setShowModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
-
+  const [confirmDelete, setConfirmDelete] = useState<Application | null>(null);
   // Fetch data
   const { data: applications = [], isLoading } = useQuery({
     queryKey: ['applications'],
     queryFn: applicationsApi.getAll,
   });
-
+  const { data: universities = [] } = useQuery({
+    queryKey: ['universities'],
+    queryFn: universitiesApi.getAll,
+  });
   const { data: students = [] } = useQuery({
     queryKey: ['students'],
     queryFn: studentsApi.getAll,
@@ -139,11 +143,10 @@ export default function ApplicationsPage() {
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  statusFilter === status
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === status
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
               >
                 {status}
               </button>
@@ -200,7 +203,17 @@ export default function ApplicationsPage() {
                       </div>
                     </div>
                   </td>
-
+                  <td className="px-6 py-4">
+                    <p className="text-sm font-medium text-gray-900">
+                      {app.course.title}
+                    </p>
+                    {app.course.university && (
+                      <p className="text-xs text-gray-500">
+                        {app.course.university.name}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-400">£{app.course.fee}</p>
+                  </td>
                   {/* Course */}
                   <td className="px-6 py-4">
                     <p className="text-sm font-medium text-gray-900">
@@ -252,7 +265,7 @@ export default function ApplicationsPage() {
                       )}
                       {user?.role === 'ADMIN' && (
                         <button
-                          onClick={() => handleDelete(app.id)}
+                          onClick={() => setConfirmDelete(app)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 size={15} />
@@ -273,8 +286,18 @@ export default function ApplicationsPage() {
         <ApplicationFormModal
           students={students}
           courses={courses}
+          
           onSubmit={handleSubmit}
           onClose={() => setShowModal(false)}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete Application"
+          message={`Are you sure you want to delete ?`}
+          isLoading={deleteMutation.isPending}
+          onConfirm={() => deleteMutation.mutate(confirmDelete.id)}
+          onCancel={() => setConfirmDelete(null)}
         />
       )}
 

@@ -6,9 +6,10 @@ import { studentsApi, CreateStudentInput, UpdateStudentInput } from '@/lib/api/s
 import { Student } from '@/types';
 import { useAuth } from '@/lib/auth';
 import StudentFormModal from '@/components/students/StudentFormModal';
-import { Plus, Pencil, Trash2, Mail, Phone,Eye } from 'lucide-react';
+import { Plus, Pencil, Trash2, Mail, Phone, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/dist/client/components/navigation';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 export default function StudentsPage() {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ export default function StudentsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [search, setSearch] = useState('');
-
+const [confirmDelete, setConfirmDelete] = useState<Student | null>(null);
   // Fetch students
   const { data: students = [], isLoading } = useQuery({
     queryKey: ['students'],
@@ -216,7 +217,7 @@ export default function StudentsPage() {
                       </button>
                       {user?.role === 'ADMIN' && (
                         <button
-                          onClick={() => handleDelete(student.id)}
+                          onClick={() => setConfirmDelete(student)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 size={15} />
@@ -240,7 +241,15 @@ export default function StudentsPage() {
           onClose={handleCloseModal}
         />
       )}
-
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete Student"
+          message={`Are you sure you want to delete ${confirmDelete.firstName} ${confirmDelete.lastName}?`}
+          isLoading={deleteMutation.isPending}
+          onConfirm={() => deleteMutation.mutate(confirmDelete.id)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }

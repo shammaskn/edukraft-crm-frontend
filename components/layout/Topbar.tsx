@@ -10,7 +10,9 @@ const pageTitles: Record<string, string> = {
   '/leads':        'Leads',
   '/students':     'Students',
   '/courses':      'Courses',
+  '/universities': 'Universities',
   '/applications': 'Applications',
+
 };
 
 export default function Topbar() {

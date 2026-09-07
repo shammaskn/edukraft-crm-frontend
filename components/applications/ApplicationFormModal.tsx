@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useQuery } from '@tanstack/react-query';
+import { universitiesApi } from '@/lib/api/universities';
 import { Student, Course } from '@/types';
 import { X, Loader2, Search } from 'lucide-react';
 
@@ -35,6 +37,13 @@ export default function ApplicationFormModal({
     preSelectedStudent || null
   );
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
+  const [selectedUniversityId, setSelectedUniversityId] = useState('');
+
+  // Fetch universities inside modal - no need to pass as prop
+  const { data: universities = [] } = useQuery({
+    queryKey: ['universities'],
+    queryFn: universitiesApi.getAll,
+  });
 
   const {
     register,
@@ -61,15 +70,17 @@ export default function ApplicationFormModal({
     setShowStudentDropdown(false);
   };
 
+  // Filter courses by selected university
+  const filteredCourses = selectedUniversityId
+    ? courses.filter(c => c.universityId === selectedUniversityId && c.isActive)
+    : courses.filter(c => c.isActive);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
 
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">
-            New Application
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900">New Application</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
           </button>
@@ -77,13 +88,11 @@ export default function ApplicationFormModal({
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
-          {/* Student section */}
+          {/* Student */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Student
             </label>
-
-            {/* If student is pre-selected → show info only, no search */}
             {preSelectedStudent ? (
               <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
                 <div className="bg-blue-100 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -99,7 +108,6 @@ export default function ApplicationFormModal({
                 </div>
               </div>
             ) : (
-              /* No pre-selected student → show search box */
               <div className="relative">
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -117,8 +125,6 @@ export default function ApplicationFormModal({
                     className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-
-                {/* Dropdown results */}
                 {showStudentDropdown && studentSearch && filteredStudents.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
                     {filteredStudents.map((student) => (
@@ -136,15 +142,11 @@ export default function ApplicationFormModal({
                     ))}
                   </div>
                 )}
-
-                {/* No results */}
                 {showStudentDropdown && studentSearch && filteredStudents.length === 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-3">
                     <p className="text-sm text-gray-500 text-center">No students found</p>
                   </div>
                 )}
-
-                {/* Selected student confirmation */}
                 {selectedStudent && (
                   <div className="mt-2 flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
                     <div className="bg-blue-100 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -159,14 +161,37 @@ export default function ApplicationFormModal({
                 )}
               </div>
             )}
-
             {errors.studentId && (
               <p className="text-red-500 text-xs mt-1">{errors.studentId.message}</p>
             )}
             <input type="hidden" {...register('studentId')} />
           </div>
 
-          {/* Course select */}
+          {/* University filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              University
+            </label>
+            <select
+              value={selectedUniversityId}
+              onChange={(e) => {
+                setSelectedUniversityId(e.target.value);
+                setValue('courseId', '');
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All universities</option>
+              {universities
+                .filter(u => u.isActive)
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} — {u.location}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {/* Course - filtered by university */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Course
@@ -176,14 +201,17 @@ export default function ApplicationFormModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select a course</option>
-              {courses
-                .filter((c) => c.isActive)
-                .map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.title} — £{course.fee} — {course.duration} weeks
-                  </option>
-                ))}
+              {filteredCourses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.title} — £{course.fee} — {course.duration} weeks
+                </option>
+              ))}
             </select>
+            {filteredCourses.length === 0 && selectedUniversityId && (
+              <p className="text-xs text-amber-600 mt-1">
+                No active courses for this university
+              </p>
+            )}
             {errors.courseId && (
               <p className="text-red-500 text-xs mt-1">{errors.courseId.message}</p>
             )}
