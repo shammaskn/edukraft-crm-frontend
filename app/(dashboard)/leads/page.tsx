@@ -15,6 +15,7 @@ import { Plus, Pencil, Trash2, Phone, Mail, UserCheck, Eye } from 'lucide-react'
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { universitiesApi } from '@/lib/api/universities';
+import EmailGeneratorModal from '@/components/leads/EmailGeneratorModal';
 const statusOptions = ['ALL', 'NEW', 'CONTACTED', 'QUALIFIED', 'ENROLLED', 'LOST'];
 
 export default function LeadsPage() {
@@ -30,6 +31,7 @@ export default function LeadsPage() {
   const [confirmDelete, setConfirmDelete] = useState<Lead | null>(null);
   const [search, setSearch] = useState('');
   const [confirmConvert, setConfirmConvert] = useState<Lead | null>(null);
+  const [emailLead, setEmailLead] = useState<Lead | null>(null);
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ['leads'],
     queryFn: leadsApi.getAll,
@@ -313,14 +315,25 @@ export default function LeadsPage() {
 
                   {/* Actions */}
                   <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1 flex-nowrap">
 
-                      {/* Convert button - show for non-enrolled, non-lost leads */}
+                      {/* Generate Email button */}
+                      {lead.status !== 'LOST' && (
+                        <button
+                          onClick={() => setEmailLead(lead)}
+                          className="p-1.5 text-purple-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          title="Generate Email"
+                        >
+                          ✨
+                        </button>
+                      )}
+
+                      {/* Convert button */}
                       {lead.status !== 'ENROLLED' && lead.status !== 'LOST' && (
                         <button
                           onClick={() => setConfirmConvert(lead)}
                           disabled={convertMutation.isPending}
-                          className="flex items-center gap-1 px-2 py-1.5 text-xs text-green-600 hover:bg-green-50 rounded-lg transition-colors font-medium"
+                          className="flex items-center gap-1 px-2 py-1.5 text-xs text-green-600 hover:bg-green-50 rounded-lg transition-colors font-medium whitespace-nowrap"
                           title="Convert to Student"
                         >
                           <UserCheck size={14} />
@@ -328,18 +341,18 @@ export default function LeadsPage() {
                         </button>
                       )}
 
-                      {/* View Student button - show for enrolled leads */}
+                      {/* View Student button */}
                       {lead.status === 'ENROLLED' && lead.studentId && (
                         <button
                           onClick={() => router.push(`/students/${lead.studentId}`)}
-                          className="flex items-center gap-1 px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                          className="flex items-center gap-1 px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-medium whitespace-nowrap"
                         >
                           <Eye size={14} />
-                          View Student
+                          View
                         </button>
                       )}
 
-                      {/* Edit button - hide for enrolled */}
+                      {/* Edit button */}
                       {lead.status !== 'ENROLLED' && (
                         <button
                           onClick={() => handleEdit(lead)}
@@ -349,7 +362,7 @@ export default function LeadsPage() {
                         </button>
                       )}
 
-                      {/* Delete button - admin only */}
+                      {/* Delete button */}
                       {user?.role === 'ADMIN' && (
                         <button
                           onClick={() => setConfirmDelete(lead)}
@@ -421,6 +434,12 @@ export default function LeadsPage() {
           onConfirm={handleConfirmConvert}
           onCancel={() => setConfirmConvert(null)}
           variant="primary"
+        />
+      )}
+      {emailLead && (
+        <EmailGeneratorModal
+          lead={emailLead}
+          onClose={() => setEmailLead(null)}
         />
       )}
     </div>
