@@ -254,7 +254,7 @@ export default function StudentProfilePage() {
     title="Delete Application"
     message="Are you sure you want to delete this application?"
     isLoading={deleteApplicationMutation.isPending}
-    onConfirm={() => deleteApplicationMutation.mutate(confirmDelete)}
+    onConfirm={() => confirmDelete && deleteApplicationMutation.mutate(confirmDelete)}
     onCancel={() => setConfirmDelete(null)}
   />
 )}
