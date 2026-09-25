@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { studentsApi } from '@/lib/api/students';
+import { Student, Application } from '@/types';
 import { applicationsApi } from '@/lib/api/applications';
 import { coursesApi } from '@/lib/api/courses';
 import { useAuth } from '@/lib/auth';
