@@ -19,7 +19,7 @@ export default function StudentProfilePage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showApplicationModal, setShowApplicationModal] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<Student | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   // Fetch student
   const { data: student, isLoading } = useQuery({
     queryKey: ['student', id],
